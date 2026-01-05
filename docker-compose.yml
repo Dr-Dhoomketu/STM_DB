@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  db-dashboard:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    restart: unless-stopped
+    networks:
+      - coolify
+    depends_on:
+      - dashboard-db
+
+  dashboard-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=db_dashboard
+      - POSTGRES_USER=dbadmin
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - dashboard_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - coolify
+    restart: unless-stopped
+
+volumes:
+  dashboard_data:
+
+networks:
+  coolify:
+    external: true
