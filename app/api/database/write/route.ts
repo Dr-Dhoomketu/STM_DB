@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { JWTService } from '@/lib/jwt'
-import { AuditService } from '@/lib/audit'
+
+export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    // Extract and verify JWT
+    // 🔐 Extract and verify JWT
     const user = JWTService.extractFromRequest(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // CRITICAL: Check OTP verification state
+    // 🔐 OTP must be verified
     if (!user.otpVerified) {
       return NextResponse.json(
         { error: 'OTP verification required' },
@@ -20,9 +21,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tableName, rowId, beforeData, afterData, confirm } = body
+    const {
+      databaseName,
+      tableName,
+      rowId,
+      beforeData,
+      afterData,
+      confirm
+    } = body
 
-    // MANDATORY: Server-side YES confirmation check
+    // ✅ Mandatory YES confirmation
     if (confirm !== 'YES') {
       return NextResponse.json(
         { error: 'Confirmation required. Must type "YES" exactly.' },
@@ -30,37 +38,51 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!tableName || !rowId || !beforeData || !afterData) {
+    // ✅ Validation
+    if (
+      !databaseName ||
+      !tableName ||
+      !rowId ||
+      !beforeData ||
+      !afterData
+    ) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // Get client IP for audit
-    const clientIP = request.headers.get('x-forwarded-for') || 
-                    request.headers.get('x-real-ip') || 
-                    'unknown'
+    // 🌐 Client IP (for audit)
+    const clientIP =
+      request.headers.get('x-forwarded-for') ||
+      request.headers.get('x-real-ip') ||
+      'unknown'
 
-    // Execute write + audit in transaction (CRITICAL)
+    // 🔥 TRANSACTION: write + audit (MANDATORY)
     await prisma.$transaction(async (tx) => {
-      // Perform the database write
-      // Note: This is a generic example - you'll need to adapt based on your table structure
       const updateData = { ...afterData }
-      delete updateData.id // Remove ID from update data
-      
+      delete updateData.id
+
+      const keys = Object.keys(updateData)
+      const values = Object.values(updateData)
+
+      const setClause = keys
+        .map((key, index) => `"${key}" = $${index + 2}`)
+        .join(', ')
+
       await tx.$executeRawUnsafe(
-        `UPDATE "${tableName}" SET ${Object.keys(updateData).map(key => `"${key}" = $${Object.keys(updateData).indexOf(key) + 2}`).join(', ')} WHERE id = $1`,
+        `UPDATE "${tableName}" SET ${setClause} WHERE id = $1`,
         rowId,
-        ...Object.values(updateData)
+        ...values
       )
 
-      // Create audit log (MANDATORY)
+      // 🧾 AUDIT LOG (REQUIRED FIELDS INCLUDED)
       await tx.auditLog.create({
         data: {
           userId: user.userId,
           userEmail: user.email,
-          tableName,
+          databaseName: database.Name,
+          tableName: tableName,
           rowId: String(rowId),
           action: 'UPDATE',
           beforeData: beforeData,
@@ -74,7 +96,6 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Database updated successfully'
     })
-
   } catch (error) {
     console.error('Database write error:', error)
     return NextResponse.json(
