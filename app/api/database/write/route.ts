@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.userId,
           userEmail: user.email,
-          databaseName: database.Name,
+          databaseName: database.name,
           tableName: tableName,
           rowId: String(rowId),
           action: 'UPDATE',
