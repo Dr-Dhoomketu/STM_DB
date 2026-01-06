@@ -49,12 +49,8 @@ export class AuditService {
       take: limit,
       skip: offset,
       include: {
-        user: {
-          select: { email: true },
-        },
-        database: {
-          select: { name: true },
-        },
+        user: { select: { email: true } },
+        database: { select: { name: true } },
       },
     })
   }
@@ -65,12 +61,18 @@ export class AuditService {
       orderBy: { timestamp: 'desc' },
       take: limit,
       include: {
-        user: {
-          select: { email: true },
-        },
+        user: { select: { email: true } },
       },
     })
   }
+}
+
+/**
+ * ✅ COMPATIBILITY EXPORT
+ * This is what your routes are importing
+ */
+export async function logAuditEvent(data: AuditLogData): Promise<void> {
+  return AuditService.log(data)
 }
 
 /**
