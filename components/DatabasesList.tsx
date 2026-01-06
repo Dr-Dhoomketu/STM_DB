@@ -14,6 +14,7 @@ interface Database {
   read_only: boolean;
   edit_enabled: boolean;
   extra_confirmation_required: boolean;
+  is_active: boolean;
   project_name: string | null;
 }
 

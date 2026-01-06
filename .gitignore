@@ -36,4 +36,5 @@ next-env.d.ts
 # Temporary files
 test-db-connection.js
 create-admin-simple.js
-register-sample-dbs.js
+register-sample-dbs.js*.zip
+.env*

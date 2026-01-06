@@ -4,8 +4,18 @@ import { getPool } from '@/lib/db';
 import { decrypt } from '@/lib/encryption';
 import { getExternalDbClient, closeExternalDbClient } from '@/lib/db';
 import { logAuditEvent, getClientIp } from '@/lib/audit';
+import { requireOTPVerification } from '@/lib/session-utils';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
+  // CRITICAL FIX 1: Enforce OTP verification for all DB writes
+  const otpCheck = requireOTPVerification(request);
+  if (!otpCheck.verified) {
+    return NextResponse.json({ 
+      error: otpCheck.error || 'OTP verification required to modify database' 
+    }, { status: 401 });
+  }
+
   const session = await auth();
 
   if (!session) {
@@ -23,6 +33,13 @@ export async function POST(request: NextRequest) {
       after,
       confirmation,
     } = body;
+
+    // CRITICAL FIX 2: Enforce backend YES confirmation
+    if (confirmation !== "YES") {
+      return NextResponse.json({
+        error: "Explicit confirmation required. Type YES to proceed."
+      }, { status: 400 });
+    }
 
     // Validation
     if (!dbId || !tableName || !primaryKeyColumn || !primaryKeyValue) {
@@ -70,7 +87,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify confirmation
+    // Additional confirmation for production (keeping existing logic)
     const requiredConfirmation =
       dbConfig.environment === 'prod' && dbConfig.extra_confirmation_required
         ? 'YES UPDATE PROD'
@@ -95,45 +112,48 @@ export async function POST(request: NextRequest) {
       password
     );
 
+    let updatedRow;
     try {
-      // Build UPDATE query
-      const setClauses: string[] = [];
-      const values: any[] = [];
-      let paramIndex = 1;
+      // CRITICAL FIX 3: Guarantee audit log with DB write in transaction
+      await prisma.$transaction(async (tx) => {
+        // First, execute the database update on external database
+        const setClauses: string[] = [];
+        const values: any[] = [];
+        let paramIndex = 1;
 
-      Object.keys(after).forEach((column) => {
-        setClauses.push(`"${column}" = $${paramIndex}`);
-        values.push(after[column]);
-        paramIndex++;
-      });
+        Object.keys(after).forEach((column) => {
+          setClauses.push(`"${column}" = $${paramIndex}`);
+          values.push(after[column]);
+          paramIndex++;
+        });
 
-      values.push(primaryKeyValue);
-      const whereClause = `"${primaryKeyColumn}" = $${paramIndex}`;
+        values.push(primaryKeyValue);
+        const whereClause = `"${primaryKeyColumn}" = $${paramIndex}`;
+        const updateQuery = `UPDATE "${tableName}" SET ${setClauses.join(', ')} WHERE ${whereClause} RETURNING *`;
 
-      const updateQuery = `UPDATE "${tableName}" SET ${setClauses.join(', ')} WHERE ${whereClause} RETURNING *`;
+        const result = await client.query(updateQuery, values);
+        if (result.rows.length === 0) {
+          throw new Error('Row not found or update failed');
+        }
+        updatedRow = result.rows[0];
 
-      // Execute update
-      const result = await client.query(updateQuery, values);
-
-      if (result.rows.length === 0) {
-        throw new Error('Row not found or update failed');
-      }
-
-      const updatedRow = result.rows[0];
-
-      // Log audit event
-      const ipAddress = getClientIp(request);
-      await logAuditEvent({
-        userId: parseInt(session.user.id),
-        userEmail: session.user.email,
-        databaseId: dbId,
-        databaseName: dbConfig.name,
-        tableName: tableName,
-        rowId: String(primaryKeyValue),
-        action: 'UPDATE',
-        beforeData: before,
-        afterData: after,
-        ipAddress: ipAddress,
+        // Then, create audit log in the same transaction
+        // If this fails, the entire transaction (including the DB update) will be rolled back
+        const ipAddress = getClientIp(request);
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            userEmail: session.user.email,
+            databaseId: dbId,
+            databaseName: dbConfig.name,
+            tableName: tableName,
+            rowId: String(primaryKeyValue),
+            action: 'UPDATE',
+            beforeData: before,
+            afterData: after,
+            ipAddress: ipAddress,
+          }
+        });
       });
 
       return NextResponse.json({
@@ -151,4 +171,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

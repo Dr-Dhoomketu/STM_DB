@@ -1,47 +1,65 @@
-import { getPool } from './db';
+import { prisma } from './prisma'
 
-export interface AuditLogEntry {
-  userId: number;
-  userEmail: string;
-  databaseId: number | null;
-  databaseName: string;
-  tableName: string;
-  rowId: string | null;
-  action: 'UPDATE' | 'INSERT' | 'DELETE' | 'VIEW';
-  beforeData: any;
-  afterData: any;
-  ipAddress: string | null;
+export interface AuditLogData {
+  userEmail: string
+  databaseId?: string
+  databaseName: string
+  tableName: string
+  rowId?: string
+  action: 'VIEW' | 'INSERT' | 'UPDATE' | 'DELETE'
+  beforeData?: any
+  afterData?: any
+  ipAddress?: string
 }
 
-export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
-  const pool = getPool();
-  
-  await pool.query(
-    `INSERT INTO audit_logs 
-     (user_id, user_email, database_id, database_name, table_name, row_id, action, before_data, after_data, ip_address)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [
-      entry.userId,
-      entry.userEmail,
-      entry.databaseId,
-      entry.databaseName,
-      entry.tableName,
-      entry.rowId,
-      entry.action,
-      JSON.stringify(entry.beforeData),
-      JSON.stringify(entry.afterData),
-      entry.ipAddress,
-    ]
-  );
-}
-
-export function getClientIp(request: Request | Headers): string | null {
-  const headers = request instanceof Request ? request.headers : request;
-  const forwarded = headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
+export class AuditService {
+  static async log(data: AuditLogData): Promise<void> {
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userEmail: data.userEmail,
+          databaseId: data.databaseId,
+          databaseName: data.databaseName,
+          tableName: data.tableName,
+          rowId: data.rowId,
+          action: data.action,
+          beforeData: data.beforeData || null,
+          afterData: data.afterData || null,
+          ipAddress: data.ipAddress,
+        }
+      })
+    } catch (error) {
+      console.error('Failed to create audit log:', error)
+      // Don't throw - audit logging should not break the main operation
+    }
   }
-  const realIp = headers.get('x-real-ip');
-  return realIp || null;
-}
 
+  static async getAuditLogs(limit = 100, offset = 0) {
+    return prisma.auditLog.findMany({
+      orderBy: { timestamp: 'desc' },
+      take: limit,
+      skip: offset,
+      include: {
+        user: {
+          select: { email: true }
+        },
+        database: {
+          select: { name: true }
+        }
+      }
+    })
+  }
+
+  static async getAuditLogsForDatabase(databaseId: string, limit = 100) {
+    return prisma.auditLog.findMany({
+      where: { databaseId },
+      orderBy: { timestamp: 'desc' },
+      take: limit,
+      include: {
+        user: {
+          select: { email: true }
+        }
+      }
+    })
+  }
+}

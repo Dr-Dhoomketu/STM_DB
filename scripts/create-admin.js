@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Script to create an admin user for the database control panel
- * Works with environment variables (production-ready)
+ * Script to create an admin user for the secure database editor
+ * Uses Prisma for database operations
  */
 
 const bcrypt = require('bcryptjs');
-const { Pool } = require('pg');
+const { PrismaClient } = require('@prisma/client');
 const readline = require('readline');
+
+const prisma = new PrismaClient();
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -53,7 +55,7 @@ function questionHidden(prompt) {
 
 async function createAdmin() {
   try {
-    console.log('🔐 Database Control Panel - Admin User Creation\n');
+    console.log('🔐 Secure Database Editor - Admin User Creation\n');
 
     // Check if DATABASE_URL is set
     if (!process.env.DATABASE_URL) {
@@ -63,13 +65,9 @@ async function createAdmin() {
       process.exit(1);
     }
 
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL
-    });
-
     // Test database connection
     try {
-      await pool.query('SELECT 1');
+      await prisma.$connect();
       console.log('✅ Database connection successful\n');
     } catch (error) {
       console.error('❌ Database connection failed:', error.message);
@@ -77,6 +75,7 @@ async function createAdmin() {
       console.log('1. PostgreSQL is running');
       console.log('2. Database exists');
       console.log('3. DATABASE_URL is correct');
+      console.log('4. Run: npm run db:migrate');
       process.exit(1);
     }
 
@@ -94,38 +93,44 @@ async function createAdmin() {
     }
 
     // Check if user already exists
-    const existingUser = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
 
-    if (existingUser.rows.length > 0) {
+    if (existingUser) {
       console.error(`❌ User with email ${email} already exists`);
       process.exit(1);
     }
 
     // Hash password and create user
     console.log('\n🔄 Creating admin user...');
-    const hash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
     
-    const result = await pool.query(
-      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role',
-      [email, hash, 'ADMIN']
-    );
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        role: 'ADMIN'
+      }
+    });
 
-    const user = result.rows[0];
     console.log('✅ Admin user created successfully!');
     console.log(`   ID: ${user.id}`);
     console.log(`   Email: ${user.email}`);
     console.log(`   Role: ${user.role}`);
-    console.log('\n🎉 You can now login to the database control panel!');
+    console.log('\n🔒 IMPORTANT SECURITY NOTES:');
+    console.log('1. Change this password after first login');
+    console.log('2. OTP will be sent to this email for login');
+    console.log('3. Make sure Gmail App Password is configured');
+    console.log('\n🎉 You can now login to the secure database editor!');
     console.log(`   URL: ${process.env.NEXTAUTH_URL || 'http://localhost:3000'}`);
 
-    await pool.end();
     rl.close();
   } catch (error) {
     console.error('❌ Error creating admin user:', error.message);
     process.exit(1);
+  } finally {
+    await prisma.$disconnect();
   }
 }
 

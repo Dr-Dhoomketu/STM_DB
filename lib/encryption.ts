@@ -7,9 +7,9 @@ const TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
 
 function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY;
+  const key = process.env.DB_CREDENTIAL_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY;
   if (!key) {
-    throw new Error('ENCRYPTION_KEY environment variable is not set');
+    throw new Error('DB_CREDENTIAL_ENCRYPTION_KEY environment variable is not set');
   }
   // Convert hex string to buffer
   return Buffer.from(key, 'hex');
