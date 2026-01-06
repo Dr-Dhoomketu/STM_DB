@@ -66,6 +66,10 @@ export async function POST(request: NextRequest) {
       const keys = Object.keys(updateData)
       const values = Object.values(updateData)
 
+      if (keys.length === 0) {
+        throw new Error('No fields to update')
+      }
+
       const setClause = keys
         .map((key, index) => `"${key}" = $${index + 2}`)
         .join(', ')
@@ -76,12 +80,12 @@ export async function POST(request: NextRequest) {
         ...values
       )
 
-      // 🧾 AUDIT LOG (REQUIRED FIELDS INCLUDED)
+      // 🧾 AUDIT LOG (ALL REQUIRED FIELDS ✔)
       await tx.auditLog.create({
         data: {
           userId: user.userId,
           userEmail: user.email,
-          databaseName: database.name,
+          databaseName: databaseName, // ✅ FIXED
           tableName: tableName,
           rowId: String(rowId),
           action: 'UPDATE',
