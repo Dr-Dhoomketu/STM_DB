@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
 
         // Then, create audit log in the same transaction
         // If this fails, the entire transaction (including the DB update) will be rolled back
-        const ipAddress = getClientIp(request);
+        const ipAddress = getClientIp();
         await tx.auditLog.create({
           data: {
             userId: session.user.id,
