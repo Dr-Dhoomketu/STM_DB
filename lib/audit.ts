@@ -1,5 +1,10 @@
 import { prisma } from './prisma'
+import { headers } from 'next/headers'
 
+/**
+ * Audit log input structure
+ * MUST match Prisma schema
+ */
 export interface AuditLogData {
   userEmail: string
   databaseId?: string
@@ -12,25 +17,29 @@ export interface AuditLogData {
   ipAddress?: string
 }
 
+/**
+ * Centralized audit logging service
+ * Never throws errors (audit must not break app)
+ */
 export class AuditService {
   static async log(data: AuditLogData): Promise<void> {
     try {
       await prisma.auditLog.create({
         data: {
           userEmail: data.userEmail,
-          databaseId: data.databaseId,
+          databaseId: data.databaseId ?? null,
           databaseName: data.databaseName,
           tableName: data.tableName,
-          rowId: data.rowId,
+          rowId: data.rowId ?? null,
           action: data.action,
-          beforeData: data.beforeData || null,
-          afterData: data.afterData || null,
-          ipAddress: data.ipAddress,
-        }
+          beforeData: data.beforeData ?? null,
+          afterData: data.afterData ?? null,
+          ipAddress: data.ipAddress ?? null,
+        },
       })
     } catch (error) {
       console.error('Failed to create audit log:', error)
-      // Don't throw - audit logging should not break the main operation
+      // IMPORTANT: do not throw
     }
   }
 
@@ -41,12 +50,12 @@ export class AuditService {
       skip: offset,
       include: {
         user: {
-          select: { email: true }
+          select: { email: true },
         },
         database: {
-          select: { name: true }
-        }
-      }
+          select: { name: true },
+        },
+      },
     })
   }
 
@@ -57,9 +66,20 @@ export class AuditService {
       take: limit,
       include: {
         user: {
-          select: { email: true }
-        }
-      }
+          select: { email: true },
+        },
+      },
     })
   }
+}
+
+/**
+ * Extract client IP (works behind Coolify / proxy)
+ */
+export function getClientIp(): string {
+  const forwardedFor = headers().get('x-forwarded-for')
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim()
+  }
+  return 'unknown'
 }
