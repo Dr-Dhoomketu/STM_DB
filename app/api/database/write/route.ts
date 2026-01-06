@@ -40,14 +40,14 @@ export async function POST(request: NextRequest) {
 
     // ✅ Validation
     if (
-      !databaseName ||
-      !tableName ||
-      !rowId ||
+      typeof databaseName !== 'string' ||
+      typeof tableName !== 'string' ||
+      (!rowId && rowId !== 0) ||
       !beforeData ||
       !afterData
     ) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing or invalid required fields' },
         { status: 400 }
       )
     }
@@ -70,6 +70,11 @@ export async function POST(request: NextRequest) {
         throw new Error('No fields to update')
       }
 
+      // ⚠️ Prevent SQL injection on identifiers
+      if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+        throw new Error('Invalid table name')
+      }
+
       const setClause = keys
         .map((key, index) => `"${key}" = $${index + 2}`)
         .join(', ')
@@ -85,12 +90,12 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.userId,
           userEmail: user.email,
-          databaseName: databaseName, // ✅ FIXED
-          tableName: tableName,
+          databaseName,
+          tableName,
           rowId: String(rowId),
           action: 'UPDATE',
-          beforeData: beforeData,
-          afterData: afterData,
+          beforeData,
+          afterData,
           ipAddress: clientIP
         }
       })
