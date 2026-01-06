@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer'
 import { prisma } from './prisma'
 
 export class OTPService {
-  private static transporter = nodemailer.createTransporter({
+  private static transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_FROM,
