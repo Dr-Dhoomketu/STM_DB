@@ -5,6 +5,8 @@ import { encrypt } from '@/lib/encryption';
 import { Client } from 'pg';
 import { z } from 'zod';
 
+export const runtime = 'nodejs';
+
 // Validation schema for PostgreSQL URL
 const addDatabaseSchema = z.object({
   url: z.string().min(1, 'Database URL is required'),
@@ -17,13 +19,12 @@ const addDatabaseSchema = z.object({
 // Parse PostgreSQL URL
 function parsePostgresUrl(url: string) {
   try {
-    // Validate protocol
     if (!url.startsWith('postgres://') && !url.startsWith('postgresql://')) {
       throw new Error('Invalid protocol. Must start with postgres:// or postgresql://');
     }
 
     const parsed = new URL(url);
-    
+
     if (!parsed.hostname || !parsed.username || !parsed.password) {
       throw new Error('URL must include hostname, username, and password');
     }
@@ -31,12 +32,16 @@ function parsePostgresUrl(url: string) {
     return {
       host: parsed.hostname,
       port: parsed.port ? parseInt(parsed.port) : 5432,
-      database: parsed.pathname.slice(1) || 'postgres', // Remove leading slash
+      database: parsed.pathname.slice(1) || 'postgres',
       username: parsed.username,
       password: parsed.password,
     };
   } catch (error) {
-    throw new Error(`Invalid PostgreSQL URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Invalid PostgreSQL URL: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
+    );
   }
 }
 
@@ -54,51 +59,48 @@ async function testDatabaseConnection(connectionParams: {
     database: connectionParams.database,
     user: connectionParams.username,
     password: connectionParams.password,
-    connectionTimeoutMillis: 5000, // 5 second timeout
+    connectionTimeoutMillis: 5000,
   });
 
   try {
     await client.connect();
-    // Test with a simple query
     await client.query('SELECT 1');
     return true;
   } catch (error) {
-    throw new Error(`Database connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Database connection failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
+    );
   } finally {
     try {
       await client.end();
     } catch {
-      // Ignore cleanup errors
+      // ignore cleanup errors
     }
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
     const session = await auth();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ADMIN-ONLY endpoint
     if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ 
-        error: 'Access denied. Admin privileges required.' 
-      }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Access denied. Admin privileges required.' },
+        { status: 403 }
+      );
     }
 
-    // Parse and validate request body
     const body = await request.json();
     const validatedData = addDatabaseSchema.parse(body);
 
-    // Parse PostgreSQL URL
     const connectionParams = parsePostgresUrl(validatedData.url);
-
-    // Test database connection before storing
     await testDatabaseConnection(connectionParams);
 
-    // Check if database with same connection already exists
     const existingDb = await prisma.database.findFirst({
       where: {
         host: connectionParams.host,
@@ -109,15 +111,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingDb) {
-      return NextResponse.json({
-        error: 'A database with the same connection parameters already exists'
-      }, { status: 409 });
+      return NextResponse.json(
+        { error: 'A database with the same connection parameters already exists' },
+        { status: 409 }
+      );
     }
 
-    // Encrypt password using AES-256-GCM
     const encryptedPassword = encrypt(connectionParams.password);
 
-    // Store in control database
     const newDatabase = await prisma.database.create({
       data: {
         name: validatedData.name,
@@ -130,14 +131,12 @@ export async function POST(request: NextRequest) {
         environment: validatedData.environment,
         projectId: validatedData.projectId,
         isActive: true,
-        // Security defaults
         readOnly: true,
         editEnabled: false,
         extraConfirmationRequired: validatedData.environment === 'prod',
       },
     });
 
-    // Return success response WITHOUT credentials
     return NextResponse.json({
       success: true,
       database: {
@@ -151,22 +150,21 @@ export async function POST(request: NextRequest) {
         environment: newDatabase.environment,
         isActive: newDatabase.isActive,
         createdAt: newDatabase.createdAt,
-        // NEVER return encrypted password or original URL
       },
     });
-
   } catch (error) {
     console.error('Error adding database:', error);
-    
+
     if (error instanceof z.ZodError) {
-      return NextResponse.json({
-        error: 'Validation failed',
-        details: error.errors,
-      }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.errors },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : 'Failed to add database'
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to add database' },
+      { status: 500 }
+    );
   }
 }

@@ -7,6 +7,9 @@ import { logAuditEvent, getClientIp } from '@/lib/audit';
 import { requireOTPVerification } from '@/lib/session-utils';
 import { prisma } from '@/lib/prisma';
 
+export const runtime = 'nodejs'
+
+
 export async function POST(request: NextRequest) {
   // CRITICAL FIX 1: Enforce OTP verification for all DB writes
   const otpCheck = requireOTPVerification(request);
