@@ -31,7 +31,7 @@ export class JWTService {
 
   static createCookie(token: string): string {
     const isProduction = process.env.NODE_ENV === 'production'
-    return `auth-token=${token}; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict${isProduction ? '; Secure' : ''}`
+    return `auth-token=${token}; HttpOnly; Path=/; Max-Age=86400; SameSite=Lax${isProduction ? '; Secure' : ''}`
   }
 
   static clearCookie(): string {
