@@ -3,8 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { OTPService } from '@/lib/otp'
 import { JWTService } from '@/lib/jwt'
 
-export const runtime = 'nodejs'
-
 export async function POST(request: NextRequest) {
   try {
     const { email, otp } = await request.json()
@@ -16,6 +14,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 🔍 Find user
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() }
     })
@@ -27,33 +26,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const valid = await OTPService.verifyStoredOTP(user.id, otp)
-
-    if (!valid) {
+    // 🔐 Verify OTP
+    const isValid = await OTPService.verifyStoredOTP(user.id, otp)
+    if (!isValid) {
       return NextResponse.json(
         { error: 'Invalid or expired OTP' },
         { status: 401 }
       )
     }
 
-    // ✅ FINAL LOGIN RESPONSE
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        email: user.email,
-        role: user.role
-      }
-    })
-
-    // ✅ CREATE AUTH SESSION (THIS WAS MISSING)
-    JWTService.attachToResponse(response, {
+    // ✅ CREATE AUTH TOKEN (otpVerified = true)
+    const token = JWTService.sign({
       userId: user.id,
       email: user.email,
       role: user.role,
       otpVerified: true
     })
 
+    // ✅ SET COOKIE
+    const response = NextResponse.json({ success: true })
+    response.headers.set(
+      'Set-Cookie',
+      JWTService.createCookie(token)
+    )
+
     return response
+
   } catch (error) {
     console.error('OTP verification error:', error)
     return NextResponse.json(
