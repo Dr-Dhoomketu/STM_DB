@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 🔍 Find user
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() }
     })
@@ -26,16 +25,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 🔐 Verify OTP
-    const isValid = await OTPService.verifyStoredOTP(user.id, otp)
-    if (!isValid) {
+    const isValidOTP = await OTPService.verifyStoredOTP(user.id, otp)
+    if (!isValidOTP) {
       return NextResponse.json(
         { error: 'Invalid or expired OTP' },
         { status: 401 }
       )
     }
 
-    // ✅ CREATE AUTH TOKEN (otpVerified = true)
+    // ✅ CREATE JWT WITH OTP VERIFIED
     const token = JWTService.sign({
       userId: user.id,
       email: user.email,
@@ -43,15 +41,15 @@ export async function POST(request: NextRequest) {
       otpVerified: true
     })
 
-    // ✅ SET COOKIE
     const response = NextResponse.json({ success: true })
+
+    // ✅ SET AUTH COOKIE (THIS WAS MISSING)
     response.headers.set(
       'Set-Cookie',
       JWTService.createCookie(token)
     )
 
     return response
-
   } catch (error) {
     console.error('OTP verification error:', error)
     return NextResponse.json(
