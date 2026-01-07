@@ -23,18 +23,10 @@ export class JWTService {
     }
   }
 
+  // ✅ EDGE-SAFE COOKIE READ
   static extractFromRequest(request: NextRequest): JWTPayload | null {
     const token = request.cookies.get('auth-token')?.value
     if (!token) return null
     return this.verify(token)
-  }
-
-  static createCookie(token: string): string {
-    const isProduction = process.env.NODE_ENV === 'production'
-    return `auth-token=${token}; HttpOnly; Path=/; Max-Age=86400; SameSite=Lax${isProduction ? '; Secure' : ''}`
-  }
-
-  static clearCookie(): string {
-    return 'auth-token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict'
   }
 }
