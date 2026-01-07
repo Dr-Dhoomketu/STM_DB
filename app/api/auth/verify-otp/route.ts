@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { OTPService } from '@/lib/otp'
-import { setOTPVerified } from '@/lib/session-utils'
+import { JWTService } from '@/lib/jwt'
+
+export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +16,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find user
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() }
     })
@@ -26,18 +27,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify OTP
-    const isValidOTP = await OTPService.verifyStoredOTP(user.id, otp)
-    if (!isValidOTP) {
+    const valid = await OTPService.verifyStoredOTP(user.id, otp)
+
+    if (!valid) {
       return NextResponse.json(
         { error: 'Invalid or expired OTP' },
         { status: 401 }
       )
     }
 
-    // Set OTP verified in session - this is the critical security fix
-    return await setOTPVerified(request, user.id, user.email, user.role)
+    // ✅ FINAL LOGIN RESPONSE
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        email: user.email,
+        role: user.role
+      }
+    })
 
+    // ✅ CREATE AUTH SESSION (THIS WAS MISSING)
+    JWTService.attachToResponse(response, {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      otpVerified: true
+    })
+
+    return response
   } catch (error) {
     console.error('OTP verification error:', error)
     return NextResponse.json(
