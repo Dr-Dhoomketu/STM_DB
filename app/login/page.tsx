@@ -49,6 +49,7 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // ✅ CRITICAL: Include cookies
         body: JSON.stringify({ email, otp })
       })
 
@@ -58,12 +59,14 @@ export default function LoginPage() {
         throw new Error(data.error || 'OTP verification failed')
       }
 
-      router.push('/dashboard')
+      // ✅ CRITICAL: Use window.location for hard navigation
+      window.location.href = '/dashboard'
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'OTP verification failed')
-    } finally {
-      setLoading(false)
+      setLoading(false) // Only set loading to false on error
     }
+    // Don't set loading to false on success - let the redirect happen
   }
 
   return (
@@ -179,4 +182,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

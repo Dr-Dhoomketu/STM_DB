@@ -12,7 +12,9 @@
     "db:generate": "prisma generate",
     "db:create-admin": "node scripts/create-admin.js",
     "db:setup": "prisma migrate dev && npm run db:create-admin",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prebuild": "prisma generate"
+
   },
   "dependencies": {
     "next": "^14.0.0",

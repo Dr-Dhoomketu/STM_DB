@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { OTPService } from '@/lib/otp'
-import { JWTService } from '@/lib/jwt'
+import { JWTServiceEdge } from '@/lib/jwt-edge'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,21 +34,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ✅ CREATE JWT WITH OTP VERIFIED
-    const token = JWTService.sign({
+    // ✅ CREATE JWT WITH OTP VERIFIED (using Edge-compatible JWT)
+    const token = await JWTServiceEdge.sign({
       userId: user.id,
       email: user.email,
       role: user.role,
       otpVerified: true
     })
 
-    const response = NextResponse.json({ success: true })
-    
-    // ✅ SET AUTH COOKIE
-    response.headers.set(
-      'Set-Cookie',
-      JWTService.createCookie(token)
-    )
+    const response = NextResponse.json({ 
+      success: true,
+      message: 'OTP verified successfully'
+    })
+
+    // ✅ SET AUTH COOKIE - Next.js compatible way
+    response.cookies.set({
+      name: 'auth-token',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/'
+    })
 
     return response
   } catch (error) {
