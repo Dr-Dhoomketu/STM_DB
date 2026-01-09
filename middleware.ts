@@ -1,37 +1,30 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { JWTService } from './lib/jwt'
+import { JWTServiceEdge } from './lib/jwt-edge'
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // 🔍 TEMP DEBUG (REMOVE LATER)
-  console.log('MIDDLEWARE COOKIES:', request.cookies.getAll())
-
-  // Public routes
-  if (
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/api/auth')
-  ) {
+  // Public routes that don't require authentication
+  const publicRoutes = ['/login', '/api/auth/login', '/api/auth/verify-otp']
+  
+  if (publicRoutes.includes(pathname)) {
     return NextResponse.next()
   }
 
-  const user = JWTService.extractFromRequest(request)
-
-  console.log('MIDDLEWARE USER:', user)
-
+  // Check for JWT token
+  const user = await JWTServiceEdge.extractFromRequest(request)
+  
   if (!user) {
+    // Redirect to login if no valid token
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // OTP protection for DB writes
-  if (
-    pathname.includes('/api/databases/update-row') ||
-    pathname.includes('/api/database/write')
-  ) {
+  // CRITICAL: For database write operations, check OTP verification
+  if (pathname.includes('/api/databases/update-row') || pathname.includes('/api/database/write')) {
     if (!user.otpVerified) {
       return NextResponse.json(
         { error: 'OTP verification required for database writes' },
@@ -40,19 +33,29 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  const headers = new Headers(request.headers)
-  headers.set('x-user-id', user.userId)
-  headers.set('x-user-email', user.email)
-  headers.set('x-user-role', user.role)
-  headers.set('x-otp-verified', String(user.otpVerified))
+  // Add user info to headers for API routes
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-user-id', user.userId)
+  requestHeaders.set('x-user-email', user.email)
+  requestHeaders.set('x-user-role', user.role)
+  requestHeaders.set('x-otp-verified', user.otpVerified.toString())
 
   return NextResponse.next({
-    request: { headers },
+    request: {
+      headers: requestHeaders,
+    },
   })
 }
 
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
     '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 }
