@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { OTPService } from '@/lib/otp'
-import { JWTService } from '@/lib/jwt'
-import { cookies } from 'next/headers'
+import { JWTServiceEdge } from '@/lib/jwt-edge'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,6 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isValidOTP = await OTPService.verifyStoredOTP(user.id, otp)
+
     if (!isValidOTP) {
       return NextResponse.json(
         { error: 'Invalid or expired OTP' },
@@ -34,26 +34,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ✅ Create JWT
-    const token = JWTService.sign({
+    // ✅ CREATE JWT WITH OTP VERIFIED (using Edge-compatible version)
+    const token = await JWTServiceEdge.sign({
       userId: user.id,
       email: user.email,
       role: user.role,
-      otpVerified: true,
+      otpVerified: true
     })
 
-    // ✅ SET COOKIE USING next/headers (EDGE SAFE)
-    cookies().set({
-      name: 'auth-token',
-      value: token,
-      httpOnly: true,
-      path: '/',
-      maxAge: 60 * 60 * 24, // 24h
-      sameSite: 'lax',
-      secure: false, // IMPORTANT: works behind Coolify proxy
-    })
+    const response = NextResponse.json({ success: true })
+    
+    // ✅ SET AUTH COOKIE
+    response.headers.set(
+      'Set-Cookie',
+      JWTServiceEdge.createCookie(token)
+    )
 
-    return NextResponse.json({ success: true })
+    return response
   } catch (error) {
     console.error('OTP verification error:', error)
     return NextResponse.json(
