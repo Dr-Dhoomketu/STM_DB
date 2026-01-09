@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { verifyCredentials } from './auth';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true, // ⭐ ADD THIS LINE
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -44,7 +45,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
-        // OTP verification status - initially false, set to true after OTP verification
         token.otpVerified = false;
       }
       return token;
@@ -53,7 +53,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as 'ADMIN' | 'VIEWER';
-        // Include OTP verification status in session
         (session as any).otpVerified = token.otpVerified || false;
       }
       return session;
@@ -61,4 +60,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   secret: process.env.NEXTAUTH_SECRET,
 });
+```
 
