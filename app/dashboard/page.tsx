@@ -1,9 +1,23 @@
-import { auth } from '@/lib/auth-config';
 import { getPool } from '@/lib/db';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { JWTService } from '@/lib/jwt';
+import { redirect } from 'next/navigation';
 
 export default async function DashboardPage() {
-  const session = await auth();
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth-token')?.value;
+  
+  if (!token) {
+    redirect('/login');
+  }
+
+  const user = JWTService.verify(token);
+  
+  if (!user) {
+    redirect('/login');
+  }
+
   const pool = getPool();
 
   // Get statistics
@@ -30,7 +44,7 @@ export default async function DashboardPage() {
       {/* Welcome Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">
-          Welcome back, {session?.user?.email?.split('@')[0]}! 👋
+          Welcome back, {user.email.split('@')[0]}! 👋
         </h1>
         <p className="text-lg text-gray-600">
           Manage all your PostgreSQL databases from one secure dashboard
@@ -160,4 +174,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-
