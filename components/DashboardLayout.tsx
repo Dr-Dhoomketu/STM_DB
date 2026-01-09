@@ -1,13 +1,28 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
-import { useSession } from 'next-auth/react';
+import { usePathname, useRouter } from 'next/navigation';
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+interface User {
+  email: string;
+  role: string;
+  otpVerified: boolean;
+}
+
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+  user: User;
+}
+
+export function DashboardLayout({ children, user }: DashboardLayoutProps) {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  };
 
   const navigation = [
     { 
@@ -82,20 +97,20 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center space-x-3">
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">
-                    {session?.user?.email?.split('@')[0]}
+                    {user.email.split('@')[0]}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {session?.user?.role}
+                    {user.role}
                   </p>
                 </div>
                 <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
                   <span className="text-sm font-medium text-primary-600">
-                    {session?.user?.email?.charAt(0).toUpperCase()}
+                    {user.email.charAt(0).toUpperCase()}
                   </span>
                 </div>
               </div>
               <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
+                onClick={handleLogout}
                 className="btn-secondary text-sm"
               >
                 Logout
@@ -144,4 +159,3 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
