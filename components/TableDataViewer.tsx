@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { EditModeToggle } from './EditModeToggle';
 import { EditRowDialog } from './EditRowDialog';
+import { AddRowDialog } from './AddRowDialog';
+import { AddColumnDialog } from './AddColumnDialog';
 
 interface Column {
   column_name: string;
@@ -12,7 +14,7 @@ interface Column {
 }
 
 interface TableDataViewerProps {
-  dbId: string; // FIXED: Changed from number to string to handle UUIDs
+  dbId: string;
   dbName: string;
   tableName: string;
   columns: Column[];
@@ -47,9 +49,10 @@ export function TableDataViewer({
   const [search, setSearch] = useState(initialSearch);
   const [editMode, setEditMode] = useState(false);
   const [editingRow, setEditingRow] = useState<any>(null);
+  const [showAddRow, setShowAddRow] = useState(false);
+  const [showAddColumn, setShowAddColumn] = useState(false);
   const [editModeExpiresAt, setEditModeExpiresAt] = useState<Date | null>(null);
 
-  // Auto-disable edit mode after 30 minutes
   useEffect(() => {
     if (editMode && !editModeExpiresAt) {
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
@@ -95,8 +98,10 @@ export function TableDataViewer({
     setEditingRow(row);
   };
 
-  const handleRowUpdated = () => {
+  const handleDataUpdated = () => {
     setEditingRow(null);
+    setShowAddRow(false);
+    setShowAddColumn(false);
     router.refresh();
   };
 
@@ -110,24 +115,44 @@ export function TableDataViewer({
             <h1 className="text-3xl font-bold text-gray-900">{tableName}</h1>
             <p className="text-sm text-gray-500 mt-1">{dbName}</p>
           </div>
-          {editEnabled && !readOnly && (
-            <EditModeToggle
-              editMode={editMode}
-              onToggle={setEditMode}
-              expiresAt={editModeExpiresAt}
-            />
-          )}
+          <div className="flex items-center space-x-4">
+            {editEnabled && !readOnly && (
+              <>
+                {editMode && (
+                  <>
+                    <button
+                      onClick={() => setShowAddRow(true)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                    >
+                      + Add Row
+                    </button>
+                    <button
+                      onClick={() => setShowAddColumn(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                    >
+                      + Add Column
+                    </button>
+                  </>
+                )}
+                <EditModeToggle
+                  editMode={editMode}
+                  onToggle={setEditMode}
+                  expiresAt={editModeExpiresAt}
+                />
+              </>
+            )}
+          </div>
         </div>
 
         {environment === 'prod' && (
           <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4">
-            ⚠️ PRODUCTION DATABASE - All changes are logged and require confirmation
+            ⚠️ PRODUCTION DATABASE - All changes are logged and permanent
           </div>
         )}
 
         {editMode && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4">
-            ⚠️ EDIT MODE ENABLED - Changes will be saved to the database
+            ⚠️ EDIT MODE ENABLED - You can now add/edit data
             {editModeExpiresAt && (
               <span className="ml-2">
                 (Expires: {editModeExpiresAt.toLocaleTimeString()})
@@ -237,7 +262,6 @@ export function TableDataViewer({
           </div>
         )}
 
-        {/* Pagination */}
         <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
           <div className="flex-1 flex justify-between sm:hidden">
             <button
@@ -307,7 +331,29 @@ export function TableDataViewer({
           environment={environment}
           extraConfirmationRequired={extraConfirmationRequired}
           onClose={() => setEditingRow(null)}
-          onUpdated={handleRowUpdated}
+          onUpdated={handleDataUpdated}
+        />
+      )}
+
+      {showAddRow && (
+        <AddRowDialog
+          dbId={dbId}
+          dbName={dbName}
+          tableName={tableName}
+          columns={columns}
+          environment={environment}
+          onClose={() => setShowAddRow(false)}
+          onAdded={handleDataUpdated}
+        />
+      )}
+
+      {showAddColumn && (
+        <AddColumnDialog
+          dbId={dbId}
+          tableName={tableName}
+          environment={environment}
+          onClose={() => setShowAddColumn(false)}
+          onAdded={handleDataUpdated}
         />
       )}
     </div>
