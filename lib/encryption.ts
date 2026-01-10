@@ -11,8 +11,16 @@ function getEncryptionKey(): Buffer {
   if (!key) {
     throw new Error('DB_CREDENTIAL_ENCRYPTION_KEY environment variable is not set');
   }
-  // Convert hex string to buffer
-  return Buffer.from(key, 'hex');
+  
+  // ✅ FIXED: Convert base64 string to buffer (not hex!)
+  const keyBuffer = Buffer.from(key, 'base64');
+  
+  // Validate key length
+  if (keyBuffer.length !== KEY_LENGTH) {
+    throw new Error(`Invalid key length: expected ${KEY_LENGTH} bytes, got ${keyBuffer.length} bytes`);
+  }
+  
+  return keyBuffer;
 }
 
 export function encrypt(text: string): string {
@@ -49,4 +57,3 @@ export function decrypt(encryptedData: string): string {
   
   return decrypted;
 }
-
