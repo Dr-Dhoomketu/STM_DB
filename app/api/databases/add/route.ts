@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth-config';
 import { prisma } from '@/lib/prisma';
 import { encrypt } from '@/lib/encryption';
 import { Client } from 'pg';
@@ -83,12 +82,15 @@ async function testDatabaseConnection(connectionParams: {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session) {
+    // Get user info from middleware headers
+    const userRole = request.headers.get('x-user-role');
+    const userId = request.headers.get('x-user-id');
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (session.user.role !== 'ADMIN') {
+    if (userRole !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Access denied. Admin privileges required.' },
         { status: 403 }
