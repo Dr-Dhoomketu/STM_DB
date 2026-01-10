@@ -118,7 +118,7 @@ export function DatabasesList({ databases }: { databases: Database[] }) {
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <Link
-                  href={`/dashboard/databases/${db.id}/tables`}
+                  href={`/dashboard/databases/${db.id}`}
                   className="text-indigo-600 hover:text-indigo-900"
                 >
                   View Tables
@@ -131,4 +131,3 @@ export function DatabasesList({ databases }: { databases: Database[] }) {
     </div>
   );
 }
-
