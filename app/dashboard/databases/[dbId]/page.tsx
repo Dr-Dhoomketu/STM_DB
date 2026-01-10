@@ -1,4 +1,4 @@
-~import { getCurrentUser } from '@/lib/get-current-user';
+import { getCurrentUser } from '@/lib/get-current-user';
 import { redirect } from 'next/navigation';
 import { getPool } from '@/lib/db';
 import { decrypt } from '@/lib/encryption';
