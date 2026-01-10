@@ -1,11 +1,17 @@
-import { auth } from '@/lib/auth-config';
+import { getCurrentUser } from '@/lib/get-current-user';
+import { redirect } from 'next/navigation';
 import { getPool } from '@/lib/db';
 import { DatabasesList } from '@/components/DatabasesList';
 import { CreateDatabaseForm } from '@/components/CreateDatabaseForm';
 import { AddDatabaseForm } from '@/components/AddDatabaseForm';
 
 export default async function DatabasesPage() {
-  const session = await auth();
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
   const pool = getPool();
 
   const result = await pool.query(
@@ -29,7 +35,7 @@ export default async function DatabasesPage() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Databases</h1>
-        {session?.user?.role === 'ADMIN' && (
+        {user.role === 'ADMIN' && (
           <div className="flex space-x-3">
             <AddDatabaseForm projects={projects} />
             <CreateDatabaseForm projects={projects} />
@@ -41,4 +47,3 @@ export default async function DatabasesPage() {
     </div>
   );
 }
-
