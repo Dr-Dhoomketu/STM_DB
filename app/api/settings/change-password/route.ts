@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth-config';
 import { changePassword } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
+    // Get user info from middleware headers
+    const userId = request.headers.get('x-user-id');
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { oldPassword, newPassword } = await request.json();
 
     if (!oldPassword || !newPassword) {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     const success = await changePassword(
-      parseInt(session.user.id),
+      userId,
       oldPassword,
       newPassword
     );
@@ -48,4 +48,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

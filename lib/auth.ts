@@ -2,7 +2,7 @@ import { getPool } from './db';
 import bcrypt from 'bcryptjs';
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   role: 'ADMIN' | 'VIEWER';
 }
@@ -35,7 +35,7 @@ export async function verifyCredentials(
   };
 }
 
-export async function getUserById(id: number): Promise<User | null> {
+export async function getUserById(id: string): Promise<User | null> {
   const pool = getPool();
   const result = await pool.query(
     'SELECT id, email, role FROM users WHERE id = $1',
@@ -54,7 +54,7 @@ export async function getUserById(id: number): Promise<User | null> {
 }
 
 export async function changePassword(
-  userId: number,
+  userId: string,
   oldPassword: string,
   newPassword: string
 ): Promise<boolean> {
@@ -88,4 +88,3 @@ export async function changePassword(
 
   return true;
 }
-
