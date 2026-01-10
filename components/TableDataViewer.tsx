@@ -12,7 +12,7 @@ interface Column {
 }
 
 interface TableDataViewerProps {
-  dbId: number;
+  dbId: string; // FIXED: Changed from number to string to handle UUIDs
   dbName: string;
   tableName: string;
   columns: Column[];
@@ -313,4 +313,3 @@ export function TableDataViewer({
     </div>
   );
 }
-

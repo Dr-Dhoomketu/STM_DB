@@ -1,3 +1,5 @@
+// app/dashboard/databases/[dbId]/tables/[tableName]/page.tsx
+
 import { auth } from '@/lib/auth-config';
 import { getPool } from '@/lib/db';
 import { decrypt } from '@/lib/encryption';
@@ -19,7 +21,8 @@ export default async function TableDataPage({
   }
 
   const pool = getPool();
-  const dbId = parseInt(params.dbId);
+  // FIXED: Use UUID string directly, don't parse as integer
+  const dbId = params.dbId;
   const tableName = decodeURIComponent(params.tableName);
   const page = parseInt(searchParams.page || '1');
   const search = searchParams.search || '';
@@ -122,4 +125,3 @@ export default async function TableDataPage({
     />
   );
 }
-

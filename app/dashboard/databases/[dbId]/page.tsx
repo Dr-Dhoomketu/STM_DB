@@ -25,9 +25,10 @@ export default async function DatabaseDetailPage({
   }
 
   const pool = getPool();
-  const dbId = parseInt(params.dbId);
+  // FIXED: Use the UUID string directly, don't parse as integer
+  const dbId = params.dbId;
 
-  // Get database config
+  // Get database config - query by UUID string
   const dbResult = await pool.query(
     'SELECT * FROM databases WHERE id = $1 AND is_active = true',
     [dbId]

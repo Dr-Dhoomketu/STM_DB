@@ -15,7 +15,7 @@ export function TablesList({
   editEnabled,
   environment,
 }: {
-  dbId: number;
+  dbId: string; // FIXED: Changed from number to string to handle UUIDs
   tables: Table[];
   readOnly: boolean;
   editEnabled: boolean;
@@ -90,4 +90,3 @@ export function TablesList({
     </div>
   );
 }
-
