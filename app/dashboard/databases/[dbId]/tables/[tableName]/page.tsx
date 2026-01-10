@@ -1,12 +1,10 @@
-// app/dashboard/databases/[dbId]/tables/[tableName]/page.tsx
-
-import { auth } from '@/lib/auth-config';
+import { getCurrentUser } from '@/lib/get-current-user';
+import { redirect } from 'next/navigation';
 import { getPool } from '@/lib/db';
 import { decrypt } from '@/lib/encryption';
 import { getExternalDbClient, closeExternalDbClient } from '@/lib/db';
 import { TableDataViewer } from '@/components/TableDataViewer';
 import { notFound } from 'next/navigation';
-import { logAuditEvent, getClientIp } from '@/lib/audit';
 
 export default async function TableDataPage({
   params,
@@ -15,13 +13,13 @@ export default async function TableDataPage({
   params: { dbId: string; tableName: string };
   searchParams: { page?: string; search?: string };
 }) {
-  const session = await auth();
-  if (!session) {
-    notFound();
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    redirect('/login');
   }
 
   const pool = getPool();
-  // FIXED: Use UUID string directly, don't parse as integer
   const dbId = params.dbId;
   const tableName = decodeURIComponent(params.tableName);
   const page = parseInt(searchParams.page || '1');
@@ -41,9 +39,6 @@ export default async function TableDataPage({
 
   const dbConfig = dbResult.rows[0];
   const password = decrypt(dbConfig.password_encrypted);
-
-  // Note: View events are logged less frequently to avoid spam
-  // Only significant actions (edits) are logged in detail
 
   // Connect to external database
   let client;

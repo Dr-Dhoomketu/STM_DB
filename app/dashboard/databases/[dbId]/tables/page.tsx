@@ -1,4 +1,5 @@
-import { auth } from '@/lib/auth-config';
+import { getCurrentUser } from '@/lib/get-current-user';
+import { redirect } from 'next/navigation';
 import { getPool } from '@/lib/db';
 import { decrypt } from '@/lib/encryption';
 import { getExternalDbClient, closeExternalDbClient } from '@/lib/db';
@@ -10,13 +11,14 @@ export default async function TablesPage({
 }: {
   params: { dbId: string };
 }) {
-  const session = await auth();
-  if (!session) {
-    notFound();
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    redirect('/login');
   }
 
   const pool = getPool();
-  const dbId = parseInt(params.dbId);
+  const dbId = params.dbId;
 
   // Get database config
   const dbResult = await pool.query(
@@ -113,4 +115,3 @@ export default async function TablesPage({
     </div>
   );
 }
-
